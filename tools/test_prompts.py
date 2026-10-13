@@ -122,11 +122,12 @@ class ReviewTests(unittest.TestCase):
             changed_documents(self.root, 'missing', 'HEAD')
 
     def test_terminal_disposition(self):
-        self.assertEqual(disposition('No material issues.\nDISPOSITION: APPROVE'), 'APPROVE')
+        self.assertEqual(disposition('{"assessment":"No material issues.","disposition":"APPROVE"}'), 'APPROVE')
 
     def test_malformed_disposition(self):
-        for output in ['', 'approved', 'DISPOSITION: APPROVE\ntrailing text',
-                       'DISPOSITION: APPROVE\nDISPOSITION: COMMENT']:
+        for output in ['', 'approved', '{"disposition":"APPROVE"}',
+                       '{"assessment":"fine","disposition":"PASS"}',
+                       '{"assessment":"fine","disposition":"APPROVE"} trailing']:
             with self.subTest(output=output), self.assertRaises(ValueError):
                 disposition(output)
 

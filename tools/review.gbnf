@@ -1,4 +1,4 @@
-root ::= "{" ws "\"evidence\"" ws ":" ws string ws "," ws "\"assessment\"" ws ":" ws string ws "," ws "\"disposition\"" ws ":" ws verdict ws "}"
+root ::= "{" ws "\"evidence\"" ws ":" ws evidence ws "," ws "\"assessment\"" ws ":" ws string ws "," ws "\"disposition\"" ws ":" ws verdict ws "}"
 verdict ::= "\"APPROVE\"" | "\"COMMENT\"" | "\"REQUEST_CHANGES\""
 string ::= "\"" char+ "\""
 char ::= [^"\\\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])

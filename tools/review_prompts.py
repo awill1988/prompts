@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 
 from fetch_model import configuration, ensure
 
@@ -75,16 +76,30 @@ def disposition(output):
         raise ValueError(f"invalid model assessment: {output!r}") from error
 
 
-def infer(model, runner, prompt):
+def evidence_grammar(context):
+    lines = sorted(set(line.strip() for line in context.splitlines()
+                       if 16 <= len(line.strip()) <= 240 and not line.startswith(
+                           ('file:', 'complete ', 'diff ', 'index ', '---', '+++', '@@'))))
+    if not lines:
+        raise ValueError('review context has no citable instruction lines')
+    choices = ' | '.join(json.dumps(json.dumps(line)) for line in lines)
+    return Path(__file__).with_name('review.gbnf').read_text() + '\nevidence ::= ' + choices + '\n'
+
+
+def infer(model, runner, prompt, context=None):
     env = os.environ.copy()
     env["LD_LIBRARY_PATH"] = str(runner.parent) + ":" + env.get("LD_LIBRARY_PATH", "")
     command = [str(runner), "-m", str(model), "-p", prompt, "-n", str(RESPONSE_TOKENS),
                "-c", str(CONTEXT_TOKENS), "--temp", "0", "--seed", "1", "-t", "4",
                "--no-display-prompt", "--no-conversation", "--no-warmup",
-               "--grammar-file", str(Path(__file__).with_name("review.gbnf")),
                "--no-context-shift", "--simple-io"]
-    result = subprocess.run(command, env=env, stdin=subprocess.DEVNULL, capture_output=True,
-                            text=True, timeout=600, check=True)
+    # Restrict citations to supplied text; assessment and disposition remain model decisions.
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.gbnf') as grammar:
+        grammar.write(evidence_grammar(context if context is not None else prompt))
+        grammar.flush()
+        result = subprocess.run(command + ['--grammar-file', grammar.name], env=env,
+                                stdin=subprocess.DEVNULL, capture_output=True,
+                                text=True, timeout=600, check=True)
     if re.search(r"context shift|prompt.{0,30}(too long|truncat)", result.stderr, re.I):
         raise ValueError("runner reported incomplete review context")
     # llama-cli prints this transport marker after generation; it is not model JSON.
@@ -94,11 +109,12 @@ def infer(model, runner, prompt):
 def review(root, base, head, model, runner):
     findings = []
     for name in changed_documents(root, base, head):
-        output = infer(model, runner, review_input(root, base, head, name))
+        context = document_context(root, base, head, name)
+        output = infer(model, runner, review_input(root, base, head, name), context)
         verdict = disposition(output)
         data = json.loads(output)
         normalized = lambda value: ' '.join(value.split())
-        if normalized(data['evidence']) not in normalized(document_context(root, base, head, name)):
+        if normalized(data['evidence']) not in normalized(context):
             raise ValueError(f"{name}: model evidence is not present in the reviewed text: {output!r}")
         findings.append({"file": name, "disposition": verdict,
                          "evidence": data['evidence'], "assessment": data['assessment'], "raw_output": output})
@@ -138,7 +154,7 @@ def main():
     else:
         for finding in result["findings"]:
             # Fence arbitrary model output so it cannot introduce report markup.
-            fence = "`" * max(3, max((len(m[0]) + 1 for m in re.finditer(r"`+", finding["assessment"])), default=3))
+            fence = "`" * max(3, max((len(m[0]) + 1 for m in re.finditer(r"`+", finding["evidence"] + finding["assessment"])), default=3))
             summary += f"\n## {finding['file']}\n\n{fence}text\nevidence: {finding['evidence']}\n{finding['assessment']}\n{fence}\n"
     args.summary_file.write_text(summary)
     print(json.dumps(result))

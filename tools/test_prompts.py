@@ -7,7 +7,7 @@ from unittest.mock import patch
 import zipfile
 
 from fetch_model import download, extract_runner
-from review_prompts import changed_documents, disposition, review_input, review, CONTEXT_TOKENS
+from review_prompts import changed_documents, disposition, review_input, review, infer, CONTEXT_TOKENS
 from validate_prompts import validate
 
 
@@ -143,6 +143,12 @@ class ReviewTests(unittest.TestCase):
         with patch('review_prompts.infer', side_effect=RuntimeError('failed')):
             with self.assertRaises(RuntimeError):
                 review(self.root, self.base, 'HEAD', None, None)
+
+    def test_runner_transport_marker(self):
+        output = '{"assessment":"No material defects.","disposition":"APPROVE"}'
+        result = subprocess.CompletedProcess([], 0, output + ' [end of text]\n', '')
+        with patch('review_prompts.subprocess.run', return_value=result):
+            self.assertEqual(infer(Path('/model'), Path('/runner'), 'prompt'), output)
 
 
 class DownloadTests(unittest.TestCase):

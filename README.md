@@ -8,8 +8,8 @@ identity routing, credentials, permissions, and installation.
 
 [`instructions/AGENTS.md`](instructions/AGENTS.md) is the stable, self-contained
 distribution interface. Client filenames are installation aliases, not separate
-policies. The initial import preserves the current dotfiles policy so its
-redesign can be reviewed independently.
+policies. The [policy migration](docs/policy-migration.md) records retained,
+consolidated, relocated, and revised rules.
 
 Dotfiles consumes this public repository as a non-flake Nix input pinned in
 `flake.lock`. Publishing here does not update an installed machine. See the

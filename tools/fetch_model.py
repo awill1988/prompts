@@ -9,6 +9,8 @@ import tempfile
 import urllib.request
 import zipfile
 
+DOWNLOAD_CHUNK_BYTES = 1024 * 1024  # 1 MiB
+
 
 def configuration(path):
     return dict(line.split("=", 1) for line in Path(path).read_text().splitlines()
@@ -31,7 +33,7 @@ def download(urls, target, digest):
             with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as out:
                 temporary = Path(out.name)
                 with urllib.request.urlopen(url, timeout=60) as response:
-                    while chunk := response.read(1024 * 1024):
+                    while chunk := response.read(DOWNLOAD_CHUNK_BYTES):
                         out.write(chunk)
             if checksum(temporary) != digest:
                 raise ValueError("checksum mismatch")

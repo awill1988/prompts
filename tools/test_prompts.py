@@ -8,7 +8,7 @@ from unittest.mock import patch
 import zipfile
 
 from fetch_model import download, extract_runner
-from review_prompts import changed_documents, disposition, review_input, review, infer, CONTEXT_TOKENS
+from review_prompts import changed_documents, disposition, review_input, review, infer, evidence_grammar, CONTEXT_TOKENS
 from validate_prompts import validate
 
 
@@ -150,7 +150,16 @@ class ReviewTests(unittest.TestCase):
         output = '{"assessment":"No material defects.","disposition":"APPROVE"}'
         result = subprocess.CompletedProcess([], 0, output + ' [end of text]\n', '')
         with patch('review_prompts.subprocess.run', return_value=result):
-            self.assertEqual(infer(Path('/model'), Path('/runner'), 'prompt'), output)
+            self.assertEqual(infer(Path('/model'), Path('/runner'), 'Require explicit identity.'), output)
+
+    def test_evidence_grammar_escapes_document_literals(self):
+        line = 'Require "configured" identity in C:\\example.'
+        grammar = evidence_grammar(line)
+        self.assertIn(json.dumps(json.dumps(line)), grammar)
+
+    def test_evidence_requires_citable_context(self):
+        with self.assertRaises(ValueError):
+            evidence_grammar('')
 
     def test_fabricated_evidence_cannot_approve(self):
         self.entry.write_text('# Revised\n\nRequire configured identity.\n')

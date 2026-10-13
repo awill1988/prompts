@@ -22,9 +22,8 @@ Technology-specific rules are conditional on that technology being used.
 Shared instructions need no skill frontmatter, marketplace, or profile variants.
 Do not invent requirements. Cite the offending text for actionable findings.
 Use COMMENT for advisory style suggestions and REQUEST_CHANGES only for concrete
-material defects. End with exactly one line:
-DISPOSITION: APPROVE or DISPOSITION: COMMENT or DISPOSITION: REQUEST_CHANGES
-Choose only one of those lines, without alternatives or explanations on it.
+material defects. Return one JSON object with an assessment string and a
+disposition equal to APPROVE, COMMENT, or REQUEST_CHANGES.
 """
 
 
@@ -56,10 +55,15 @@ def review_input(root, base, head, name):
 
 
 def disposition(output):
-    matches = re.findall(r"^DISPOSITION: (APPROVE|COMMENT|REQUEST_CHANGES)\s*$", output, re.M)
-    if len(matches) != 1 or output.rstrip().splitlines()[-1].strip() != f"DISPOSITION: {matches[0]}":
-        raise ValueError("model output lacks one terminal disposition")
-    return matches[0]
+    try:
+        data = json.loads(output)
+        if set(data) != {"assessment", "disposition"} or not isinstance(data["assessment"], str) or not data["assessment"].strip():
+            raise ValueError("missing assessment")
+        if data["disposition"] not in ("APPROVE", "COMMENT", "REQUEST_CHANGES"):
+            raise ValueError("invalid disposition")
+        return data["disposition"]
+    except (ValueError, TypeError) as error:
+        raise ValueError(f"invalid model assessment: {output!r}") from error
 
 
 def infer(model, runner, prompt):
@@ -68,6 +72,7 @@ def infer(model, runner, prompt):
     command = [str(runner), "-m", str(model), "-p", prompt, "-n", str(RESPONSE_TOKENS),
                "-c", str(CONTEXT_TOKENS), "--temp", "0", "--seed", "1", "-t", "4",
                "--no-display-prompt", "--no-conversation", "--no-warmup",
+               "--grammar-file", str(Path(__file__).with_name("review.gbnf")),
                "--no-context-shift", "--simple-io"]
     result = subprocess.run(command, env=env, stdin=subprocess.DEVNULL, capture_output=True,
                             text=True, timeout=600, check=True)
@@ -80,7 +85,9 @@ def review(root, base, head, model, runner):
     findings = []
     for name in changed_documents(root, base, head):
         output = infer(model, runner, review_input(root, base, head, name))
-        findings.append({"file": name, "disposition": disposition(output), "assessment": output})
+        verdict = disposition(output)
+        findings.append({"file": name, "disposition": verdict,
+                         "assessment": json.loads(output)["assessment"], "raw_output": output})
     return findings
 
 

@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -122,7 +123,8 @@ class ReviewTests(unittest.TestCase):
             changed_documents(self.root, 'missing', 'HEAD')
 
     def test_terminal_disposition(self):
-        self.assertEqual(disposition('{"assessment":"No material issues.","disposition":"APPROVE"}'), 'APPROVE')
+        self.assertEqual(disposition(json.dumps({'evidence': 'Require explicit identity.',
+            'assessment': 'The policy retains an explicit identity boundary.', 'disposition': 'APPROVE'})), 'APPROVE')
 
     def test_malformed_disposition(self):
         for output in ['', 'approved', '{"disposition":"APPROVE"}',
@@ -149,6 +151,23 @@ class ReviewTests(unittest.TestCase):
         result = subprocess.CompletedProcess([], 0, output + ' [end of text]\n', '')
         with patch('review_prompts.subprocess.run', return_value=result):
             self.assertEqual(infer(Path('/model'), Path('/runner'), 'prompt'), output)
+
+    def test_fabricated_evidence_cannot_approve(self):
+        self.entry.write_text('# Revised\n\nRequire configured identity.\n')
+        self.commit()
+        response = json.dumps({'evidence': 'An instruction absent from the document.',
+            'assessment': 'This fabricated instruction would be a material issue.', 'disposition': 'APPROVE'})
+        with patch('review_prompts.infer', return_value=response), self.assertRaises(ValueError):
+            review(self.root, self.base, 'HEAD', None, None)
+
+    def test_grounded_assessment(self):
+        self.entry.write_text('# Revised\n\nRequire configured identity.\n')
+        self.commit()
+        response = json.dumps({'evidence': 'Require configured identity.',
+            'assessment': 'The change retains the configured identity boundary.', 'disposition': 'APPROVE'})
+        with patch('review_prompts.infer', return_value=response):
+            findings = review(self.root, self.base, 'HEAD', None, None)
+        self.assertEqual(findings[0]['disposition'], 'APPROVE')
 
 
 class DownloadTests(unittest.TestCase):

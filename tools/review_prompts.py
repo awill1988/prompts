@@ -22,11 +22,11 @@ Technology-specific rules are conditional on that technology being used.
 Shared instructions need no skill frontmatter, marketplace, or profile variants.
 Do not invent requirements. Cite the offending text for actionable findings.
 Use COMMENT for advisory style suggestions and REQUEST_CHANGES only for concrete
-material defects. In the assessment, explain the concrete finding and quote
-the relevant instruction. Do not merely repeat a disposition word. If no
-material defect is supported by the text, explain that and use APPROVE.
-Return one JSON object, for example:
-{"assessment":"The change preserves configured identity boundaries and has no material defects.","disposition":"APPROVE"}
+material defects. Return one JSON object with evidence, assessment, and
+disposition fields. Evidence must quote an actual relevant instruction from
+the supplied document or diff, at least 16 characters. The assessment must
+explain what that evidence means for this change. Do not repeat a disposition
+word as the assessment. Disposition is APPROVE, COMMENT, or REQUEST_CHANGES.
 """
 
 
@@ -42,15 +42,19 @@ def changed_documents(root, base, head):
     return [name for name in names if name.endswith(".md")]
 
 
-def review_input(root, base, head, name):
+def document_context(root, base, head, name):
     current = git(root, "ls-tree", "--name-only", head, "--", name).strip()
     revision = head if current else base
     document = git(root, "show", f"{revision}:{name}").decode("utf-8")
     diff = git(root, "diff", "--no-ext-diff", "--no-renames", base, head, "--", name).decode("utf-8")
     state = "current" if current else "deleted"
+    return f"file: {name}\ncomplete {state} document:\n{document}\nchange:\n{diff}"
+
+
+def review_input(root, base, head, name):
+    context = document_context(root, base, head, name)
     prompt = (f"<|im_start|>system\n{SYSTEM}<|im_end|>\n<|im_start|>user\n"
-              f"file: {name}\ncomplete {state} document:\n{document}\n"
-              f"change:\n{diff}<|im_end|>\n<|im_start|>assistant\n")
+              f"{context}<|im_end|>\n<|im_start|>assistant\n")
     # UTF-8 bytes bound byte-level tokens conservatively; never truncate context.
     if len(prompt.encode("utf-8")) > CONTEXT_TOKENS - RESPONSE_TOKENS - 256:
         raise ValueError(f"{name}: review context exceeds conservative token budget")
@@ -60,8 +64,10 @@ def review_input(root, base, head, name):
 def disposition(output):
     try:
         data = json.loads(output)
-        if set(data) != {"assessment", "disposition"} or not isinstance(data["assessment"], str) or not data["assessment"].strip():
+        if set(data) != {"evidence", "assessment", "disposition"} or not isinstance(data["assessment"], str) or len(data["assessment"].strip()) < 32:
             raise ValueError("missing assessment")
+        if not isinstance(data["evidence"], str) or len(data["evidence"].strip()) < 16:
+            raise ValueError("missing evidence")
         if data["disposition"] not in ("APPROVE", "COMMENT", "REQUEST_CHANGES"):
             raise ValueError("invalid disposition")
         return data["disposition"]
@@ -90,8 +96,12 @@ def review(root, base, head, model, runner):
     for name in changed_documents(root, base, head):
         output = infer(model, runner, review_input(root, base, head, name))
         verdict = disposition(output)
+        data = json.loads(output)
+        normalized = lambda value: ' '.join(value.split())
+        if normalized(data['evidence']) not in normalized(document_context(root, base, head, name)):
+            raise ValueError(f"{name}: model evidence is not present in the reviewed text: {output!r}")
         findings.append({"file": name, "disposition": verdict,
-                         "assessment": json.loads(output)["assessment"], "raw_output": output})
+                         "evidence": data['evidence'], "assessment": data['assessment'], "raw_output": output})
     return findings
 
 
@@ -129,7 +139,7 @@ def main():
         for finding in result["findings"]:
             # Fence arbitrary model output so it cannot introduce report markup.
             fence = "`" * max(3, max((len(m[0]) + 1 for m in re.finditer(r"`+", finding["assessment"])), default=3))
-            summary += f"\n## {finding['file']}\n\n{fence}text\n{finding['assessment']}\n{fence}\n"
+            summary += f"\n## {finding['file']}\n\n{fence}text\nevidence: {finding['evidence']}\n{finding['assessment']}\n{fence}\n"
     args.summary_file.write_text(summary)
     print(json.dumps(result))
     return code

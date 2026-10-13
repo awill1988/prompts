@@ -22,8 +22,11 @@ Technology-specific rules are conditional on that technology being used.
 Shared instructions need no skill frontmatter, marketplace, or profile variants.
 Do not invent requirements. Cite the offending text for actionable findings.
 Use COMMENT for advisory style suggestions and REQUEST_CHANGES only for concrete
-material defects. Return one JSON object with an assessment string and a
-disposition equal to APPROVE, COMMENT, or REQUEST_CHANGES.
+material defects. In the assessment, explain the concrete finding and quote
+the relevant instruction. Do not merely repeat a disposition word. If no
+material defect is supported by the text, explain that and use APPROVE.
+Return one JSON object, for example:
+{"assessment":"The change preserves configured identity boundaries and has no material defects.","disposition":"APPROVE"}
 """
 
 
@@ -78,7 +81,8 @@ def infer(model, runner, prompt):
                             text=True, timeout=600, check=True)
     if re.search(r"context shift|prompt.{0,30}(too long|truncat)", result.stderr, re.I):
         raise ValueError("runner reported incomplete review context")
-    return result.stdout.strip()
+    # llama-cli prints this transport marker after generation; it is not model JSON.
+    return result.stdout.strip().removesuffix('[end of text]').rstrip()
 
 
 def review(root, base, head, model, runner):

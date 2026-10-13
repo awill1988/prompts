@@ -1,0 +1,48 @@
+name: Prompt Model Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Base revision to compare
+        default: origin/main
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: prompt-model-review
+    if: github.event_name == 'workflow_dispatch' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/prompt-review
+          key: prompt-review-linux-v1-${{ hashFiles('tools/model.env') }}
+      - name: Review instructions
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || inputs.base_ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python tools/review_prompts.py --base "$BASE_REF" --head "$HEAD_REF"
+      - name: Publish summary
+        if: always()
+        run: test ! -f review.md || cat review.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prompt-review
+          path: |
+            review.json
+            review.md

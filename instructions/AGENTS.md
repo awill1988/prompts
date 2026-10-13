@@ -36,18 +36,28 @@ When performing AWS operations (CLI commands, SDK calls, infrastructure changes)
 - Common profiles: `default`, `arro-staging`, `arro-production`
 - Common regions: `us-east-1`, `us-west-2`, `eu-west-1`
 
-## SQL Operations
+## SQL and Snowflake
 
-**Sequential execution required** — never invoke more than one SQL query tool at a time. Planning multiple queries in parallel is fine, but each must wait for the previous to complete before executing. This applies to all SQL-capable MCP tools (Snowflake, Postgres, and any future database tools).
-
-Before executing any SQL query against a database:
-
-- **Always run `EXPLAIN`** (or `EXPLAIN ANALYZE` where safe) first to review the query plan
-- **Check for index usage**—avoid queries that result in full table scans on large tables
-- **Avoid computationally intensive queries** such as unbound aggregations, cross joins, or queries lacking `WHERE` clauses
-- **Use `LIMIT`** during exploration to prevent accidentally fetching millions of rows
-- **Never execute destructive statements** (`DROP`, `TRUNCATE`, `DELETE`, `UPDATE` without `WHERE`) without explicit user confirmation
-- For Snowflake: be mindful of warehouse compute costs; prefer `LIMIT` and filtered queries
+- Execute SQL-capable tool calls sequentially. Wait for each query to complete
+  before submitting another, including queries to different databases.
+- Inspect connector capabilities before issuing database commands. Do not
+  infer allowed statements from the database product alone.
+- Before data queries, inspect an `EXPLAIN` plan. Use `EXPLAIN ANALYZE` only
+  when executing the underlying query is already safe and authorized.
+- Check index use or partition pruning as applicable. Refine queries that scan
+  large tables; avoid unbounded aggregation, cross joins, and broad filters.
+  Use selective predicates and `LIMIT` during exploration; `LIMIT` alone does
+  not establish bounded scan cost.
+- Metadata commands and session controls use their native syntax; do not wrap
+  commands that cannot be explained in invalid `EXPLAIN` statements.
+- For Snowflake, set `STATEMENT_TIMEOUT_IN_SECONDS` to `10` once per persistent
+  session through an authorized session-control mechanism before data queries.
+  Check partition pruning, including for `SNOWFLAKE.ACCOUNT_USAGE` queries.
+- If required plan inspection or session setup is unavailable, report that
+  missing capability and stop the dependent query. Do not invent successful
+  preflight or bypass connector restrictions.
+- Require explicit confirmation for `DROP`, `TRUNCATE`, and unfiltered `DELETE`
+  or `UPDATE`. Filtered writes still require task authorization.
 
 ## Git Workflow
 
@@ -100,35 +110,6 @@ Git is configured with `push.default = simple` and `push.autoSetupRemote = true`
 
 - Reference files: path:line format (e.g., flake.nix:42)
 - File operations: Read → Edit pattern preferred
-
-## Snowflake MCP
-
-The Snowflake MCP server is configured with restricted permissions:
-
-- **Only `SHOW`, `SELECT`, and `COMMAND` statements are allowed**—all other statement types will be rejected
-- Use `SHOW` commands for metadata exploration (e.g., `SHOW PIPES`, `SHOW TABLES`, `SHOW SCHEMAS`)
-- Use `SELECT` for data queries with appropriate `LIMIT` clauses
-
-### Session Setup (Required)
-
-Before running any Snowflake query, set the session timeout:
-
-```sql
-ALTER SESSION SET STATEMENT_TIMEOUT_IN_SECONDS = 10
-```
-
-This only needs to run once per session (the Snowflake MCP server uses a persistent connection).
-
-### Query Evaluation (Required)
-
-Before executing any Snowflake `SELECT` query:
-
-1. **Run `EXPLAIN` first** to review the query plan and estimate cost
-2. **Check for partition pruning** — avoid queries that scan all partitions
-3. **If EXPLAIN shows a full scan on a large table**, refine the query with tighter filters before executing
-4. **Only then execute the actual query**
-
-This applies to all `SELECT` statements, including those against `SNOWFLAKE.ACCOUNT_USAGE` views which can be expensive.
 
 ## Context7 MCP
 
@@ -202,4 +183,3 @@ When users reference other AI assistants by name, understand they may be compari
 - **Profile Adherence**: `agent-loop` resolves the active developer profile from the target workspace. In `work` profiles, it restricts execution to `claude-secondary` and will not swap to unauthorized personal models
 - **Worktree Invariant**: Autonomous loops must execute in isolated Git worktrees (`wt switch -c agent-loop/<task>`). Worktrees are created adjacent to the parent repository within the same path prefix to preserve profile resolution
 - **Stop Conditions**: Every continuous loop must have deterministic verification gates (e.g. `nix flake check`, `pytest`, `cargo test`) before changes can be staged or committed
-

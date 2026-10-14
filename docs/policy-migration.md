@@ -50,3 +50,26 @@ accounts or clients: configured boundaries govern every operation.
   personal circumstances from shared policy.
 - Integrate the saved notes into the self-contained distribution document;
   normalize wording without retaining standalone prompt titles or emphasis.
+
+## Concise policy and boolean interfaces
+
+### Policy addition
+
+- Prohibit new boolean function, method, and API parameters and database
+  columns, including nullable booleans and disguised boolean flags. Use named
+  operations, explicit enums, or domain types with meaningful states instead.
+- Changing an existing boolean parameter or column requires redesign of the
+  affected interface or schema. Unrelated legacy uses remain outside scope.
+  Compatibility or external-contract constraints block dependent work until
+  the user supplies the needed decision; they do not permit silent exceptions.
+- Boolean return values, local predicates, and conditional expressions remain
+  outside the prohibition. This policy update does not migrate application
+  schemas or refactor other repositories.
+
+### Editorial consolidation
+
+- Combine communication and evidence, consolidate identity and Git wording,
+  and shorten implementation, database, documentation, and loop instructions.
+  Preserve existing requirements, exceptions, and stopping conditions.
+- Keep the distribution self-contained. No installation or tooling changes
+  accompany the rewrite.

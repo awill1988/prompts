@@ -25,3 +25,28 @@ remain properties of the consuming environment.
 SQL capability handling, tool portability, and conditional developer flows are
 substantive clarifications. Removing identities does not expand authorized
 accounts or clients: configured boundaries govern every operation.
+
+## Saved instruction integration
+
+### Policy changes
+
+- Evidence and blockers: missing access, failed tools, and empty output cannot
+  establish nonexistence. Failure or empty output from a user-required tool,
+  source, or method stops dependent work with a `BLOCKED` report stating the
+  attempt, result, and needed user input. Substitutes and inferred answers are
+  prohibited; independent authorized work may continue.
+- Documentation and comments: remove obsolete draft and failed-implementation
+  storytelling, preserve the intended tense, and retain only relevant content.
+  No completed-PR or historical-decision exceptions are added.
+- Complex models: require at least three complementary diagrams covering
+  structure, interactions, and lifecycle or state behavior. This generalizes
+  the PRG-specific request to complex architecture and domain documentation.
+
+### Editorial consolidation
+
+- Communication: consolidate the saved preference into the existing concise,
+  respectful style rule, emphasizing few words and plain language while
+  retaining necessary evidence and action. Omit generational labels and
+  personal circumstances from shared policy.
+- Integrate the saved notes into the self-contained distribution document;
+  normalize wording without retaining standalone prompt titles or emphasis.

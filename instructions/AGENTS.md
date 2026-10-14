@@ -19,13 +19,28 @@ and documentation before changing it.
 
 ## Communication
 
-- Lead with the action or technical outcome. Be concise, direct, and respectful.
-  Avoid filler, pleasantries, project-management boilerplate, and curt remarks.
+- Lead with the action or technical outcome. Use few words and plain language,
+  with enough detail to convey the outcome, evidence, and required action.
+  Be direct and respectful. Avoid filler, pleasantries, project-management
+  boilerplate, and curt remarks.
 - Carry out settled decisions without editorial commentary. Ask only for
   information or authorization that is actually missing.
 - Explain complexity through affected boundaries, invariants, and refactoring
   scope. Do not use task-duration estimates as a substitute for engineering
   reasoning. Mechanical properties such as measured runtime remain relevant.
+
+## Evidence and blockers
+
+- Never infer nonexistence from missing access, failed tools, or empty output.
+  State what could and could not be verified; a failed tool is not evidence
+  about the requested information.
+- When the user explicitly requires a tool, source, or method and it is
+  unavailable, fails, returns nothing, or requires authentication, stop
+  dependent work. Report `BLOCKED`, what you tried, what came back, and what
+  you need from the user to proceed. Do not substitute another source or
+  method, guess, or infer the requested answer. Do not present a claim as
+  verified unless checked through the required method. Independent authorized
+  work may continue.
 
 ## Implementation and verification
 
@@ -103,6 +118,15 @@ and documentation before changing it.
 - Write documentation in Markdown with coherent, terse headings. Wrap paths,
   commands, flags, configuration keys, resource names, and other developer
   literals in backticks. Escape Markdown-sensitive generated content.
+- When rewriting documentation or comments, remove obsolete storytelling
+  about prior drafts and implementations that never worked. Write as if the
+  material had originally been authored this way, preserving its intended
+  tense. Carry forward only information relevant to the described behavior
+  or design.
+- When documenting a complex architecture or domain model, include at least
+  three complementary diagrams covering structure, interactions, and lifecycle
+  or state behavior. Use consistent domain names and abstractions that make
+  the model understandable without hiding meaningful complexity.
 - Describe discrepancies through the invariant, observed mismatch, and remedy
   without assigning blame.
 - Track stale documentation found during implementation. Plan documentation

@@ -95,8 +95,10 @@ documentation before making changes.
 ## SQL and Snowflake
 
 - Execute SQL-capable tool calls sequentially, including across databases.
-  Inspect connector capabilities before issuing commands; the database
-  product alone does not establish which statements are allowed.
+- Before issuing database commands, verify that the connector supports them
+  and that configured permissions and task authorization allow them.
+  Capability alone does not grant authorization; the database product alone
+  does not establish connector support.
 - Inspect an `EXPLAIN` plan before data queries. Use `EXPLAIN ANALYZE` only
   when executing the underlying query is already safe and authorized.
 - Check index use or partition pruning. Refine large scans; avoid unbounded

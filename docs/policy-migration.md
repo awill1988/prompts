@@ -73,3 +73,5 @@ accounts or clients: configured boundaries govern every operation.
   Preserve existing requirements, exceptions, and stopping conditions.
 - Keep the distribution self-contained. No installation or tooling changes
   accompany the rewrite.
+- State connector support and execution authorization separately. Capability
+  inspection does not replace configured permissions or task authorization.
